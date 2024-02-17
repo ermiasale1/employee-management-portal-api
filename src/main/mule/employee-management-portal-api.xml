@@ -1,0 +1,328 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<mule xmlns:wsc="http://www.mulesoft.org/schema/mule/wsc" xmlns="http://www.mulesoft.org/schema/mule/core" xmlns:apikit="http://www.mulesoft.org/schema/mule/mule-apikit" xmlns:doc="http://www.mulesoft.org/schema/mule/documentation" xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core" xmlns:http="http://www.mulesoft.org/schema/mule/http" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd http://www.mulesoft.org/schema/mule/mule-apikit http://www.mulesoft.org/schema/mule/mule-apikit/current/mule-apikit.xsd http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd 
+http://www.mulesoft.org/schema/mule/wsc http://www.mulesoft.org/schema/mule/wsc/current/mule-wsc.xsd">
+    <http:listener-config name="employee-management-portal-api-httpListenerConfig">
+        <http:listener-connection host="0.0.0.0" port="8081" />
+    </http:listener-config>
+    <apikit:config name="employee-management-portal-api-config" api="resource::365c0916-7d81-4e86-9868-48a222bf3226:employee-management-portal-api:1.0.2:raml:zip:employee-management-portal-api.raml" outboundHeadersMapName="outboundHeaders" httpStatusVarName="httpStatus" />
+	<wsc:config name="Web_Service_Consumer_Config_Dev" doc:name="Web Service Consumer Config" doc:id="16ee960a-a22c-4782-90fb-a996305d9f95" >
+		<wsc:connection wsdlLocation='http://34.86.136.216:6061/ws/employees.wsdl' service="EmployeePortService" port="EmployeePortSoap11" address="http://34.86.136.216:6061/ws">
+			<wsc:web-service-security actor="http://schemas.xmlsoap.org/soap/actor/next" />
+		</wsc:connection>
+	</wsc:config>
+	<wsc:config name="Web_Service_Consumer_Config_prod" doc:name="Web Service Consumer Config" doc:id="34bedd1a-5d72-4b93-bef2-2e86abe1b6b6" >
+		<wsc:connection wsdlLocation="http://34.86.136.216:6063/ws/employees.wsdl" service="EmployeePortService" port="EmployeePortSoap11" address="http://34.86.136.216:6063/ws" />
+	</wsc:config>
+	<wsc:config name="Web_Service_Consumer_Config_test" doc:name="Web Service Consumer Config" doc:id="7586520a-65cc-4a84-88d7-47227b26afbc" >
+		<wsc:connection wsdlLocation="http://34.86.136.216:6062/ws/employees.wsdl" service="EmployeePortService" port="EmployeePortSoap11" address="http://34.86.136.216:6062/ws" />
+	</wsc:config>
+	<configuration-properties doc:name="Configuration properties" doc:id="82a88c0a-fe44-41fa-abec-fc1afa431834" file="development.yaml" />
+	<flow name="employee-management-portal-api-main">
+        <http:listener config-ref="employee-management-portal-api-httpListenerConfig" path="/api/*">
+            <http:response statusCode="#[vars.httpStatus default 200]">
+                <http:headers><![CDATA[#[vars.outboundHeaders default {}]]]></http:headers>
+            </http:response>
+            <http:error-response statusCode="#[vars.httpStatus default 500]">
+                <http:body><![CDATA[#[payload]]]></http:body>
+                <http:headers><![CDATA[#[vars.outboundHeaders default {}]]]></http:headers>
+            </http:error-response>
+        </http:listener>
+        <apikit:router config-ref="employee-management-portal-api-config" />
+        <error-handler>
+            <on-error-propagate type="APIKIT:BAD_REQUEST">
+                <ee:transform doc:name="Transform Message">
+                    <ee:message>
+                        <ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+{message: "Bad request"}]]></ee:set-payload>
+                    </ee:message>
+                    <ee:variables>
+                        <ee:set-variable variableName="httpStatus">400</ee:set-variable>
+                    </ee:variables>
+                </ee:transform>
+            </on-error-propagate>
+            <on-error-propagate type="APIKIT:NOT_FOUND">
+                <ee:transform doc:name="Transform Message">
+                    <ee:message>
+                        <ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+{message: "Resource not found"}]]></ee:set-payload>
+                    </ee:message>
+                    <ee:variables>
+                        <ee:set-variable variableName="httpStatus">404</ee:set-variable>
+                    </ee:variables>
+                </ee:transform>
+            </on-error-propagate>
+            <on-error-propagate type="APIKIT:METHOD_NOT_ALLOWED">
+                <ee:transform doc:name="Transform Message">
+                    <ee:message>
+                        <ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+{message: "Method not allowed"}]]></ee:set-payload>
+                    </ee:message>
+                    <ee:variables>
+                        <ee:set-variable variableName="httpStatus">405</ee:set-variable>
+                    </ee:variables>
+                </ee:transform>
+            </on-error-propagate>
+            <on-error-propagate type="APIKIT:NOT_ACCEPTABLE">
+                <ee:transform doc:name="Transform Message">
+                    <ee:message>
+                        <ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+{message: "Not acceptable"}]]></ee:set-payload>
+                    </ee:message>
+                    <ee:variables>
+                        <ee:set-variable variableName="httpStatus">406</ee:set-variable>
+                    </ee:variables>
+                </ee:transform>
+            </on-error-propagate>
+            <on-error-propagate type="APIKIT:UNSUPPORTED_MEDIA_TYPE">
+                <ee:transform doc:name="Transform Message">
+                    <ee:message>
+                        <ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+{message: "Unsupported media type"}]]></ee:set-payload>
+                    </ee:message>
+                    <ee:variables>
+                        <ee:set-variable variableName="httpStatus">415</ee:set-variable>
+                    </ee:variables>
+                </ee:transform>
+            </on-error-propagate>
+            <on-error-propagate type="APIKIT:NOT_IMPLEMENTED">
+                <ee:transform doc:name="Transform Message">
+                    <ee:message>
+                        <ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+{message: "Not Implemented"}]]></ee:set-payload>
+                    </ee:message>
+                    <ee:variables>
+                        <ee:set-variable variableName="httpStatus">501</ee:set-variable>
+                    </ee:variables>
+                </ee:transform>
+            </on-error-propagate>
+			<on-error-continue enableNotifications="true" logException="true" doc:name="On Error Continue" doc:id="36398bd6-107f-49a5-96b0-ae28cb6afc54" type="WSC:CANNOT_DISPATCH">
+				<ee:transform doc:name="Transform Message" doc:id="07c222de-90ab-4bf4-950b-57502efd8548" >
+					<ee:message >
+						<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+{
+	message: "Connectivity with server lost"
+}]]></ee:set-payload>
+					</ee:message>
+				</ee:transform>
+			</on-error-continue>
+			<on-error-propagate enableNotifications="true" logException="true" doc:name="On Error Propagate" doc:id="e1b839ea-3d7d-44a7-94e0-651cf78c2d5e" type="WSC:SOAP_FAULT">
+				<ee:transform doc:name="Transform Message" doc:id="8b053008-ed1c-4816-ad01-a64f1c875f69" >
+					<ee:message >
+						<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+{
+	message: "Requested file not in server"
+}]]></ee:set-payload>
+					</ee:message>
+				</ee:transform>
+			</on-error-propagate>
+        </error-handler>
+    </flow>
+	<flow name="employee-management-portal-api-console">
+        <http:listener config-ref="employee-management-portal-api-httpListenerConfig" path="/console/*">
+            <http:response statusCode="#[vars.httpStatus default 200]">
+                <http:headers>#[vars.outboundHeaders default {}]</http:headers>
+            </http:response>
+            <http:error-response statusCode="#[vars.httpStatus default 500]">
+                <http:body>#[payload]</http:body>
+                <http:headers>#[vars.outboundHeaders default {}]</http:headers>
+            </http:error-response>
+        </http:listener>
+        <apikit:console config-ref="employee-management-portal-api-config" />
+        <error-handler>
+            <on-error-propagate type="APIKIT:NOT_FOUND">
+                <ee:transform doc:name="Transform Message">
+                    <ee:message>
+                        <ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+{message: "Resource not found"}]]></ee:set-payload>
+                    </ee:message>
+                    <ee:variables>
+                        <ee:set-variable variableName="httpStatus">404</ee:set-variable>
+                    </ee:variables>
+                </ee:transform>
+            </on-error-propagate>
+        </error-handler>
+    </flow>
+    <flow name="put:\employees\(id):application\json:employee-management-portal-api-config">
+        <ee:transform doc:name="Transform Message">
+            <ee:variables>
+                <ee:set-variable variableName="id">attributes.uriParams.'id'</ee:set-variable>
+            </ee:variables>
+        </ee:transform>
+        <ee:transform doc:name="Transform Message" doc:id="d7ac2f0b-5d96-4c4a-9e57-c07d62d80644" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/xml
+ns ns0 http://www.cdi.com/employees
+---
+{
+	ns0#UpdateEmployeeRequest: {
+		ns0#Employee: {
+			ns0#firstName: payload.firstName,
+			ns0#lastName: payload.lastName,
+			ns0#department: payload.department
+		}
+	}
+}]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+		<wsc:consume doc:name="Consume" doc:id="8213ad7d-d4c8-459b-819d-4a938e6483a2" config-ref="${Soap.wsdl}" operation="UpdateEmployee"/>
+		<ee:transform doc:name="Transform Message" doc:id="1d8471af-f863-440e-8ad4-47131d468fba" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+ns ns0 http://www.cdi.com/employees
+---
+{
+	firstName: payload.body.ns0#UpdateEmployeeResponse.ns0#Employee.ns0#firstName default "",
+	lastName: payload.body.ns0#UpdateEmployeeResponse.ns0#Employee.ns0#lastName default "",
+	id: payload.body.ns0#UpdateEmployeeResponse.ns0#Employee.ns0#id as String default "",
+	department: payload.body.ns0#UpdateEmployeeResponse.ns0#Employee.ns0#department default ""
+}]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+    </flow>
+    <flow name="delete:\employees\(id):employee-management-portal-api-config">
+		<ee:transform doc:name="Transform Message">
+            <ee:variables>
+                <ee:set-variable variableName="id">attributes.uriParams.'id'</ee:set-variable>
+            </ee:variables>
+        </ee:transform>
+		<ee:transform doc:name="Transform Message" doc:id="96d25ceb-05c8-4cd7-a165-ee8b5831f9f4" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/xml
+ns ns0 http://www.cdi.com/employees
+---
+{
+	ns0#DeleteEmployeeRequest: {
+		ns0#id: vars.id as Number
+	}
+}]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+		<wsc:consume doc:name="Consume" doc:id="3b73ed3d-96cd-4750-9f57-cd4583185bc9" config-ref="${Soap.wsdl}" operation="DeleteEmployee"/>
+		<ee:transform doc:name="Transform Message" doc:id="b5077c0e-8bb8-433f-bb30-4747d17d4d40" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+{
+}]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+    </flow>
+    <flow name="get:\employees:employee-management-portal-api-config">
+        <ee:transform doc:name="Transform Message" doc:id="94096822-0247-4980-8f24-452d87da9756" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/xml
+ns ns0 http://www.cdi.com/employees
+---
+{
+	ns0#GetAllEmployeesRequest: {}
+}]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+		<wsc:consume operation="GetAllEmployees" doc:name="Consume" doc:id="67e62064-209b-451e-aab0-e45499a02367" config-ref="${Soap.wsdl}"/>
+		<ee:transform doc:name="Transform Message" doc:id="b467d16d-2a4a-4d15-90e8-b629748147b5" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+ns ns0 http://www.cdi.com/employees
+---
+payload.body.ns0#GetAllEmployeesResponse.*ns0#Employees map ( employee , indexOfEmployee ) -> {
+	firstName: employee.ns0#firstName default "",
+	lastName: employee.ns0#lastName default "",
+	id: employee.ns0#id as String default "",
+	department: employee.ns0#department default ""
+}]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+    </flow>
+    <flow name="get:\employees\(id):employee-management-portal-api-config">
+        <ee:transform doc:name="Transform Message">
+            <ee:variables>
+                <ee:set-variable variableName="id">attributes.uriParams.'id'</ee:set-variable>
+            </ee:variables>
+        </ee:transform>
+		<ee:transform doc:name="Transform Message" doc:id="9b51494b-a2d4-4154-8411-64b18b5af493" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/xml
+ns ns0 http://www.cdi.com/employees
+---
+{
+	ns0#GetEmployeeRequest: {
+		ns0#id: vars.id as Number
+	}
+}]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+		<wsc:consume doc:name="Consume" doc:id="01e14ab1-1c63-4e0c-99ba-92354cfa3bf9" operation="GetEmployee" config-ref="${Soap.wsdl}"/>
+		<ee:transform doc:name="Transform Message" doc:id="9f50d886-ce2e-4d96-8424-e18e38f6c678" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+ns ns0 http://www.cdi.com/employees
+---
+{
+	firstName: payload.body.ns0#GetEmployeeResponse.ns0#Employee.ns0#firstName default "",
+	lastName: payload.body.ns0#GetEmployeeResponse.ns0#Employee.ns0#lastName default "",
+	department: payload.body.ns0#GetEmployeeResponse.ns0#Employee.ns0#department default ""
+}]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+    </flow>
+    <flow name="post:\employees:application\json:employee-management-portal-api-config">
+		<ee:transform doc:name="Transform Message" doc:id="828f688b-f72f-4002-adad-9e827621394c" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/xml
+ns ns0 http://www.cdi.com/employees
+---
+{
+	ns0#AddEmployeeRequest: {
+		ns0#AddEmployee: {
+			ns0#firstName: payload.firstName,
+			ns0#lastName: payload.lastName,
+			ns0#department: payload.department
+		}
+	}
+}]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+		<wsc:consume operation="AddEmployee" doc:name="Consume" doc:id="ddd27852-0b21-45d9-93da-fef4172ea59e" config-ref="${Soap.wsdl}" />
+		<ee:transform doc:name="Transform Message" doc:id="49cc5ce5-bc8d-44cc-881f-c3c5e9e8f24e" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+ns ns0 http://www.cdi.com/employees
+---
+{
+	firstName: payload.body.ns0#AddEmployeeResponse.ns0#Employee.ns0#firstName default "",
+	lastName: payload.body.ns0#AddEmployeeResponse.ns0#Employee.ns0#lastName default "",
+	id: payload.body.ns0#AddEmployeeResponse.ns0#Employee.ns0#id as String default "",
+	department: payload.body.ns0#AddEmployeeResponse.ns0#Employee.ns0#department default ""
+}]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+    </flow>
+</mule>
